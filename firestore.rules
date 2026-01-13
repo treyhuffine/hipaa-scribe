@@ -1,0 +1,30 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Vault secret document - immutable after creation
+    match /users/{userId}/vault/secret {
+      // Allow read if authenticated as this user
+      allow read: if request.auth != null && request.auth.uid == userId;
+
+      // Allow create only if:
+      // 1. User is authenticated
+      // 2. The auth UID matches the userId in the path
+      // 3. The document doesn't already exist
+      allow create: if request.auth != null
+                    && request.auth.uid == userId
+                    && !exists(/databases/$(database)/documents/users/$(userId)/vault/secret);
+
+      // Never allow update or delete - vault secrets are immutable
+      // This ensures that once a vault secret is created, it cannot be modified
+      // or deleted, providing strong security guarantees
+      allow update, delete: if false;
+    }
+
+    // Deny all access to other collections by default
+    // Only the vault secret collection is accessible
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/buildapp/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-09T04:29:02.047Z",
+      "trigger": "initial",
+      "approvalId": "approval_1767932942045_p504zjett",
+      "approvalTitle": "Tasks Document - Implementation Breakdown"
+    }
+  ]
+}

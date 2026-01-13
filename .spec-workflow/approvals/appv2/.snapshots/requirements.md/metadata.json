@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/appv2/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-13T14:17:57.449Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768313877446_9klc9lgy1",
+      "approvalTitle": "AppV2 Requirements Document"
+    }
+  ]
+}

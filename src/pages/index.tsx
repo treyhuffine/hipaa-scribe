@@ -1,78 +1,99 @@
-import Image from "next/image";
-import { Geist, Geist_Mono } from "next/font/google";
+/**
+ * Main Application Page
+ *
+ * Entry point for authenticated users.
+ * Flow:
+ * 1. Auth guard: redirect to /login if not authenticated
+ * 2. Lock screen: show when vault is locked (isLocked || !vaultKey)
+ * 3. Main app: show recorder and notes list when unlocked
+ */
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
+import { useAuth } from '@/context/AuthContext';
+import { useVault } from '@/context/VaultContext';
+import { useRecording } from '@/context/RecordingContext';
+import { Layout } from '@/components/Layout';
+import { LockScreen } from '@/components/LockScreen';
+import { RecordingLockScreen } from '@/components/RecordingLockScreen';
+import { Recorder } from '@/components/Recorder';
+import { NotesList } from '@/components/NotesList';
+import { runJanitorForUser } from '@/lib/storage';
+import { SESSION_CONFIG } from '@/lib/constants';
 
 export default function Home() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  const { isLocked, isLoading: vaultLoading, vaultKey } = useVault();
+  const { status: recordingStatus, duration, stopRecording } = useRecording();
+
+  /**
+   * Auth guard: redirect to login if not authenticated
+   */
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, authLoading, router]);
+
+  /**
+   * Run janitor on mount and periodically (user-scoped)
+   * Deletes notes older than 12 hours for current user
+   */
+  useEffect(() => {
+    if (!user) return;
+
+    // Run janitor for current user
+    runJanitorForUser(user.uid);
+
+    const interval = setInterval(() => {
+      if (user) {
+        runJanitorForUser(user.uid);
+      }
+    }, SESSION_CONFIG.JANITOR_INTERVAL_MS);
+
+    return () => clearInterval(interval);
+  }, [user]);
+
+  // Show loading while checking auth or initializing vault
+  if (authLoading || vaultLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="text-lg">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated (will redirect)
+  if (!user) {
+    return null;
+  }
+
+  // Show recording lock screen if locked but recording is in progress
+  // This happens when session would lock but recording is still active
+  if (isLocked && recordingStatus === 'recording') {
+    return (
+      <RecordingLockScreen
+        duration={duration}
+        onStopRecording={stopRecording}
+      />
+    );
+  }
+
+  // Show lock screen when vault is locked or key not available
+  if (isLocked || !vaultKey) {
+    return <LockScreen />;
+  }
+
+  // Show main app when unlocked
   return (
-    <div
-      className={`${geistSans.className} ${geistMono.className} flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black`}
-    >
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the index.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs/pages/getting-started?utm_source=create-next-app&utm_medium=default-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+    <Layout>
+      <div className="max-w-2xl mx-auto py-8 px-4 space-y-8">
+        <Recorder />
+        <NotesList />
+      </div>
+    </Layout>
   );
 }

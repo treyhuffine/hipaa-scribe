@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/appv2/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-01-13T14:39:27.947Z",
+      "trigger": "initial",
+      "approvalId": "approval_1768315167945_rvbliwa2n",
+      "approvalTitle": "AppV2 Tasks Document"
+    }
+  ]
+}
