@@ -16,6 +16,7 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { useRecording } from '@/context/RecordingContext';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -33,6 +34,17 @@ export function Recorder() {
     reset,
     stream,
   } = useRecording();
+
+  // Auto-reset after 2 seconds when status is 'complete'
+  useEffect(() => {
+    if (status === 'complete') {
+      const timer = setTimeout(() => {
+        reset();
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [status, reset]);
 
   /**
    * Format seconds as MM:SS
@@ -57,16 +69,16 @@ export function Recorder() {
     stopRecording();
   };
 
-  // Recording State
-  if (status === 'recording') {
+  // Recording or Processing State
+  if (status === 'recording' || status === 'processing') {
     return (
       <div className="space-y-6">
         <div className="flex flex-col items-center justify-center space-y-6 py-8">
-          {/* LiveWaveform visualization */}
+          {/* LiveWaveform visualization - shows both recording and processing states */}
           <div className="w-full">
             <LiveWaveform
               active={status === 'recording'}
-              processing={false}
+              processing={status === 'processing'}
               stream={stream}
               mode="static"
               height={80}
@@ -81,63 +93,46 @@ export function Recorder() {
             />
           </div>
 
-          {/* Duration Display */}
-          <div className="text-center space-y-1">
-            <p className="text-3xl font-bold tabular-nums text-foreground">
-              {formatTime(duration)}
-            </p>
-            <p className="text-sm text-muted-foreground">
-              {formatTime(remainingTime)} remaining
-            </p>
+          {/* Duration Display - only during recording */}
+          {status === 'recording' && (
+            <div className="text-center space-y-1">
+              <p className="text-3xl font-bold tabular-nums text-foreground">
+                {formatTime(duration)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {formatTime(remainingTime)} remaining
+              </p>
+            </div>
+          )}
+
+          {/* Processing text - only during processing */}
+          {status === 'processing' && (
+            <div className="text-center space-y-1">
+              <p className="text-lg font-semibold text-foreground">Processing recording...</p>
+              <p className="text-sm text-muted-foreground">Transcribing and generating SOAP note</p>
+            </div>
+          )}
+        </div>
+
+        {/* Stop Button - only during recording */}
+        {status === 'recording' && (
+          <div className="w-full flex items-center">
+            <Button onClick={handleStop} size="lg" className="mx-auto" variant="destructive">
+              <Square className="mr-2 h-5 w-5" />
+              Stop Recording
+            </Button>
           </div>
-        </div>
-
-        {/* Stop Button */}
-        <div className="w-full flex items-center">
-          <Button onClick={handleStop} size="lg" className="mx-auto" variant="destructive">
-            <Square className="mr-2 h-5 w-5" />
-            Stop Recording
-          </Button>
-        </div>
+        )}
       </div>
     );
   }
 
-  // Processing State
-  if (status === 'processing') {
-    return (
-      <div className="flex flex-col items-center justify-center space-y-4 py-12">
-        <div className="h-16 w-16 animate-spin rounded-full border-4 border-muted border-t-primary"></div>
-        <p className="text-lg font-semibold text-foreground">Processing recording...</p>
-        <p className="text-sm text-muted-foreground">Transcribing and generating SOAP note</p>
-
-        {/* Show processing animation on waveform */}
-        <div className="w-full max-w-md mt-4">
-          <LiveWaveform
-            active={false}
-            processing={true}
-            stream={null}
-            mode="static"
-            height={80}
-            barWidth={3}
-            barGap={2}
-            barRadius={1.5}
-            barColor="gray"
-          />
-        </div>
-      </div>
-    );
-  }
-
-  // Complete State
+  // Complete State (will auto-reset after 3 seconds)
   if (status === 'complete') {
     return (
       <div className="flex flex-col items-center justify-center space-y-4 py-12">
         <CheckCircle className="h-16 w-16 text-green-500" />
         <p className="text-lg font-semibold text-green-700">Note saved successfully</p>
-        <Button onClick={reset} variant="outline" className="mt-4">
-          Record Another
-        </Button>
       </div>
     );
   }

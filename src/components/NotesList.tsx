@@ -15,9 +15,11 @@ import { useNotes } from '@/hooks/useNotes';
 import { NoteCard } from '@/components/NoteCard';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, FileText } from 'lucide-react';
+import { useRecording } from '@/context/RecordingContext';
 
 export function NotesList() {
   const { notes, loading, error, deleteNote } = useNotes();
+  const { status } = useRecording();
 
   /**
    * Handle note deletion
@@ -30,6 +32,11 @@ export function NotesList() {
       // Error handling is managed by the hook
     }
   };
+
+  // Hide notes list during recording or processing
+  if (status === 'recording' || status === 'processing') {
+    return null;
+  }
 
   // Show loading state
   if (loading) {
@@ -62,16 +69,17 @@ export function NotesList() {
 
   // Show notes list
   return (
-    <div className="space-y-6">
+    <div className="">
+      {/* Section Title */}
+      <h2 className="text-2xl font-bold">Your Notes</h2>
+
       {/* TTL Notice */}
-      <Alert>
-        <AlertDescription className="text-sm">
-          All notes are automatically deleted 12 hours after creation for security and compliance.
-        </AlertDescription>
-      </Alert>
+      <div className="text-sm text-muted-foreground">
+        All notes are automatically deleted 12 hours after creation for security and compliance.
+      </div>
 
       {/* Notes List */}
-      <div className="space-y-4">
+      <div className="space-y-4 mt-4">
         {notes.map((note) => (
           <NoteCard key={note.id} note={note} onDelete={handleDelete} />
         ))}

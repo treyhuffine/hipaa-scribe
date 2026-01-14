@@ -135,6 +135,12 @@ export function useRecorder() {
             data: encrypted.ciphertext,
           }, uid);
 
+          // Small delay to ensure IndexedDB transaction commits
+          await new Promise(resolve => setTimeout(resolve, 100));
+
+          // Trigger notes refresh via custom event
+          window.dispatchEvent(new CustomEvent('noteAdded'));
+
           setStatus('complete');
         } catch (err) {
           console.error('Processing error:', err);

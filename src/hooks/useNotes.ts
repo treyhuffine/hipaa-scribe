@@ -145,6 +145,21 @@ export function useNotes(): UseNotesReturn {
     }
   }, [vaultKey, loadNotes]);
 
+  /**
+   * Listen for noteAdded event and refresh
+   * Triggered by useRecorder after saving to IndexedDB
+   */
+  useEffect(() => {
+    const handleNoteAdded = () => {
+      if (vaultKey) {
+        loadNotes();
+      }
+    };
+
+    window.addEventListener('noteAdded', handleNoteAdded);
+    return () => window.removeEventListener('noteAdded', handleNoteAdded);
+  }, [vaultKey, loadNotes]);
+
   return {
     notes,
     loading,

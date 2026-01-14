@@ -6,7 +6,7 @@
  */
 
 import { get, set, del } from 'idb-keyval';
-import { decryptData } from './crypto';
+import { decryptData, encryptData } from './crypto';
 import { SESSION_CONFIG } from './constants';
 import type { EncryptedNote, DecryptedNote } from '@/types';
 
@@ -319,4 +319,65 @@ export async function runJanitorForUser(uid: string): Promise<number> {
 export async function clearUserData(uid: string): Promise<void> {
   await del(getUserNotesKey(uid));
   // Keep browser_salt (reusable for same user on this device)
+}
+
+/**
+ * Update a specific field in an encrypted note
+ *
+ * Loads note, decrypts, updates field, re-encrypts, saves back.
+ * Used for updating SOAP note after regeneration with additional user input.
+ *
+ * @param noteId - Note ID to update
+ * @param uid - Firebase user ID
+ * @param vaultKey - Vault encryption key
+ * @param updates - Partial updates to apply (e.g., { soapNote: "new text" })
+ */
+export async function updateEncryptedNoteForUser(
+  noteId: string,
+  uid: string,
+  vaultKey: CryptoKey,
+  updates: Partial<Pick<DecryptedNote, 'soapNote' | 'transcript' | 'duration'>>
+): Promise<void> {
+  const key = getUserNotesKey(uid);
+  const notes = (await get<EncryptedNote[]>(key)) || [];
+
+  // Find the note
+  const noteIndex = notes.findIndex((n) => n.id === noteId);
+  if (noteIndex === -1) {
+    throw new Error('Note not found');
+  }
+
+  const encryptedNote = notes[noteIndex]!;
+
+  // Decrypt current data
+  const decryptedData = await decryptData(
+    vaultKey,
+    encryptedNote.iv,
+    encryptedNote.data
+  );
+
+  const noteData = JSON.parse(decryptedData) as {
+    transcript: string;
+    soapNote: string;
+    duration: number;
+  };
+
+  // Apply updates
+  const updatedNoteData = { ...noteData, ...updates };
+
+  // Re-encrypt
+  const { iv, ciphertext } = await encryptData(
+    vaultKey,
+    JSON.stringify(updatedNoteData)
+  );
+
+  // Update in array
+  notes[noteIndex] = {
+    ...encryptedNote,
+    iv,
+    data: ciphertext,
+  };
+
+  // Save back
+  await set(key, notes);
 }
