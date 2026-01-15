@@ -13,6 +13,17 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Trash2 } from 'lucide-react';
 import type { DecryptedNote } from '@/types';
 import { NoteDetailModal } from '@/components/NoteDetailModal';
 
@@ -23,6 +34,7 @@ interface NoteCardProps {
 
 export function NoteCard({ note, onDelete }: NoteCardProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   /**
    * Format timestamp as "3:45PM - 3:57PM on Jan 8"
@@ -113,9 +125,23 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
               </CardDescription>
             </div>
 
-            <Button variant="secondary" size="lg" className="cursor-pointer font-bold">
-              Open
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button variant="secondary" size="lg" className="cursor-pointer font-bold">
+                Open
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:bg-destructive/10 hover:text-destructive cursor-pointer"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsDeleteDialogOpen(true);
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -127,6 +153,31 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
         onOpenChange={setIsModalOpen}
         onDelete={onDelete}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Note Forever?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This note will be permanently deleted and cannot be recovered. Are you sure you want
+              to continue?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="cursor-pointer">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90 cursor-pointer"
+              onClick={async () => {
+                await onDelete(note.id);
+                setIsDeleteDialogOpen(false);
+              }}
+            >
+              Delete Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

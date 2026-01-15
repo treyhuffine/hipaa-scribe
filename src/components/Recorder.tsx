@@ -115,7 +115,7 @@ export function Recorder() {
           {status === 'processing' && (
             <div className="text-center space-y-1">
               <p className="text-lg font-semibold text-foreground">Processing recording...</p>
-              <p className="text-sm text-muted-foreground">Transcribing and generating SOAP note</p>
+              <p className="text-sm text-muted-foreground">Transcribing and generating note</p>
             </div>
           )}
         </div>

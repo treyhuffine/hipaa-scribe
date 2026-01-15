@@ -7,7 +7,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useUserProfile } from '@/context/UserProfileContext';
 import { useRecording } from '@/context/RecordingContext';
@@ -46,7 +46,6 @@ export function Layout({ children }: LayoutProps) {
   const { lockNow } = useVault();
   const [profileEditOpen, setProfileEditOpen] = useState(false);
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
-  const [isStoppingRecording, setIsStoppingRecording] = useState(false);
 
   /**
    * Handle sign out click
@@ -70,11 +69,15 @@ export function Layout({ children }: LayoutProps) {
 
   /**
    * Handle "Stop Recording & Sign Out" button
+   * Lock immediately - transcription will continue in background
    */
   const handleStopAndSignOut = async () => {
-    setIsStoppingRecording(true);
     stopRecording();
-    // Note: The useEffect below will handle sign out after status changes
+    setSignOutDialogOpen(false);
+
+    // Lock immediately - transcription will continue in background
+    // using captured vault secret from the recording session
+    lockNow();
   };
 
   /**
@@ -91,27 +94,6 @@ export function Layout({ children }: LayoutProps) {
       console.error('Sign out error:', error);
     }
   };
-
-  /**
-   * Watch for recording to finish after "Stop & Sign Out"
-   */
-  useEffect(() => {
-    if (isStoppingRecording && (status === 'complete' || status === 'error' || status === 'idle')) {
-      setIsStoppingRecording(false);
-      setSignOutDialogOpen(false);
-
-      if (status === 'complete') {
-        toast.success('Recording stopped and note saved', {
-          duration: 3000,
-        });
-      }
-
-      // Sign out after recording is done
-      signOut().catch((error) => {
-        console.error('Sign out error:', error);
-      });
-    }
-  }, [status, isStoppingRecording, signOut]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -201,19 +183,14 @@ export function Layout({ children }: LayoutProps) {
           </div>
 
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isStoppingRecording}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleStopAndSignOut}
-              disabled={isStoppingRecording}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isStoppingRecording ? 'Stopping...' : 'Stop Recording & Sign Out'}
+              Stop Recording & Sign Out
             </AlertDialogAction>
-            <Button
-              variant="default"
-              onClick={handleContinueRecording}
-              disabled={isStoppingRecording}
-            >
+            <Button variant="default" onClick={handleContinueRecording}>
               Lock and Continue Recording
             </Button>
           </AlertDialogFooter>
