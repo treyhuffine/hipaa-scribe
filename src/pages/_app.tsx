@@ -1,9 +1,10 @@
 /**
  * Next.js App Component
  *
- * Root application wrapper with authentication, vault, and recording providers.
+ * Root application wrapper with authentication, profile, vault, and recording providers.
  * Provider hierarchy:
  * - AuthProvider (outermost) - Firebase authentication
+ * - UserProfileProvider - User profile and preferences
  * - VaultProvider - Encryption key and session management
  * - RecordingProvider (innermost) - Recording state management
  *
@@ -13,6 +14,7 @@
 import '@/styles/globals.css';
 import type { AppProps } from 'next/app';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { UserProfileProvider } from '@/context/UserProfileContext';
 import { VaultProvider, useVault } from '@/context/VaultContext';
 import { RecordingProvider, useRecording } from '@/context/RecordingContext';
 import { IdleWarningSheet } from '@/components/IdleWarningSheet';
@@ -43,13 +45,15 @@ function IdleWarningContainer() {
 export default function App({ Component, pageProps }: AppProps) {
   return (
     <AuthProvider>
-      <VaultProvider>
-        <RecordingProvider>
-          <Component {...pageProps} />
-          <IdleWarningContainer />
-          <Toaster position="top-right" richColors />
-        </RecordingProvider>
-      </VaultProvider>
+      <UserProfileProvider>
+        <VaultProvider>
+          <RecordingProvider>
+            <Component {...pageProps} />
+            <IdleWarningContainer />
+            <Toaster position="top-right" richColors />
+          </RecordingProvider>
+        </VaultProvider>
+      </UserProfileProvider>
     </AuthProvider>
   );
 }

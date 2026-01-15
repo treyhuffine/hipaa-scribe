@@ -19,6 +19,7 @@
 import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { useVault } from '@/context/VaultContext';
+import { useRecording } from '@/context/RecordingContext';
 import {
   Dialog,
   DialogContent,
@@ -32,6 +33,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { encryptData } from '@/lib/crypto';
 import { saveEncryptedNoteForUser } from '@/lib/storage';
+import { NoteTypeSelector } from '@/components/NoteTypeSelector';
 
 interface QuickNoteDialogProps {
   open: boolean;
@@ -41,6 +43,7 @@ interface QuickNoteDialogProps {
 export function QuickNoteDialog({ open, onOpenChange }: QuickNoteDialogProps) {
   const { user } = useAuth();
   const { vaultKey } = useVault();
+  const { noteType, setNoteType } = useRecording();
   const [text, setText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -81,7 +84,7 @@ export function QuickNoteDialog({ open, onOpenChange }: QuickNoteDialogProps) {
       // Get Firebase ID token for authentication
       const idToken = await user.getIdToken();
 
-      // Call API to format text as SOAP note
+      // Call API to format text as clinical note
       const response = await fetch('/api/text-note', {
         method: 'POST',
         headers: {
@@ -90,6 +93,7 @@ export function QuickNoteDialog({ open, onOpenChange }: QuickNoteDialogProps) {
         body: JSON.stringify({
           text: trimmedText,
           idToken,
+          noteType,
         }),
       });
 
@@ -105,7 +109,7 @@ export function QuickNoteDialog({ open, onOpenChange }: QuickNoteDialogProps) {
       const noteData = JSON.stringify({
         transcript: trimmedText,
         output,
-        type: 'soap', // Default to SOAP format (UI for type selection will be added later)
+        type: noteType,
         source: 'text',
         // Note: no duration field for text notes
       });
@@ -147,7 +151,7 @@ export function QuickNoteDialog({ open, onOpenChange }: QuickNoteDialogProps) {
         <DialogHeader>
           <DialogTitle>Quick Note</DialogTitle>
           <DialogDescription>
-            Paste or type your clinical note. It will be formatted as a SOAP note and encrypted for storage.
+            Paste or type your clinical note. It will be formatted as the selected note type and encrypted for storage.
           </DialogDescription>
         </DialogHeader>
 
@@ -160,6 +164,13 @@ export function QuickNoteDialog({ open, onOpenChange }: QuickNoteDialogProps) {
         ) : (
           // Input form
           <div className="space-y-4">
+            {/* Note Type Selector */}
+            <NoteTypeSelector
+              value={noteType}
+              onValueChange={setNoteType}
+              disabled={isLoading}
+            />
+
             <Textarea
               value={text}
               onChange={(e) => setText(e.target.value)}

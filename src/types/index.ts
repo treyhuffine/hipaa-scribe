@@ -145,3 +145,46 @@ export interface ScribeResponse {
   /** Formatted clinical note output (RENAMED from soapNote) */
   output: string;
 }
+
+/**
+ * User Profile stored in Firestore
+ *
+ * Stored at: users/{uid}/profile
+ * Contains provider information (NOT PHI). All fields required for profile completion.
+ */
+export interface UserProfile {
+  /** Provider's full name (e.g., "Dr. Sarah Johnson") */
+  name: string;
+
+  /** Professional credentials (e.g., "MD", "DO", "NP", "PA", "RN") */
+  credentials: string;
+
+  /** Medical specialty (e.g., "Internal Medicine", "Family Practice") */
+  specialty: string;
+
+  /** Work setting (e.g., "Private Practice", "Hospital", "Urgent Care") */
+  clinicalSetting: string;
+
+  /** Whether all required fields have been filled */
+  isComplete: boolean;
+
+  /** Unix timestamp when profile was first created */
+  createdAt: number;
+
+  /** Unix timestamp when profile was last updated */
+  lastUpdated: number;
+}
+
+/**
+ * User Preferences stored in Firestore
+ *
+ * Stored at: users/{uid}/preferences
+ * Contains app settings and user preferences (no PHI).
+ */
+export interface UserPreferences {
+  /** Last selected clinical note type - persists across sessions */
+  lastNoteType: import('@/lib/prompts').NoteType;
+
+  /** Unix timestamp when preferences were last updated */
+  lastUpdated: number;
+}

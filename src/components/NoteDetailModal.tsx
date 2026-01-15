@@ -140,7 +140,7 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
         body: JSON.stringify({
           transcript: note.transcript,
           userInput: userInput.trim(),
-          originalSoapNote: output,  // API still uses old field name - will be updated later
+          originalSoapNote: output, // API still uses old field name - will be updated later
         }),
       });
 
@@ -153,7 +153,7 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
 
       // Update IndexedDB with new encrypted note
       await updateEncryptedNoteForUser(note.id, user.uid, vaultKey, {
-        output: data.soapNote || data.output,  // Support both field names for now
+        output: data.soapNote || data.output, // Support both field names for now
       });
 
       // Update UI
@@ -265,7 +265,7 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
         </div>
 
         {/* Fixed floating textarea at bottom */}
-        <div className="fixed bottom-0 left-0 right-0 bg-background-accent border-t z-10 px-6 py-4">
+        <div className="fixed bottom-0 left-0 right-0 bg-card border-t z-10 px-6 py-4">
           <div className="max-w-[960px] mx-auto">
             <form onSubmit={handleSubmit} className="space-y-3">
               <Textarea

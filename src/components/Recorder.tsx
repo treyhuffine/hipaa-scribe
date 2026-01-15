@@ -23,9 +23,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mic, Square, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { LiveWaveform } from '@/components/ui/live-waveform';
 import { QuickNoteDialog } from '@/components/QuickNoteDialog';
+import { NoteTypeSelector } from '@/components/NoteTypeSelector';
 
 export function Recorder() {
-  const { status, duration, remainingTime, error, startRecording, stopRecording, reset, stream } =
+  const { status, duration, remainingTime, error, startRecording, stopRecording, reset, stream, noteType, setNoteType } =
     useRecording();
 
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
@@ -148,6 +149,15 @@ export function Recorder() {
   // Idle State - Record Button
   return (
     <div className="flex flex-col items-center justify-center space-y-6 py-8">
+      {/* Note Type Selector */}
+      <div className="w-full max-w-md px-4">
+        <NoteTypeSelector
+          value={noteType}
+          onValueChange={setNoteType}
+          disabled={status !== 'idle'}
+        />
+      </div>
+
       <button
         onClick={handleStart}
         className="flex h-32 w-32 items-center justify-center rounded-full bg-primary text-white transition-all hover:bg-primary/90 active:scale-95 cursor-pointer"

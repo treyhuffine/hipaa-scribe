@@ -13,6 +13,7 @@
 
 import { createContext, useContext, ReactNode } from 'react';
 import { useRecorder, RecordingStatus } from '@/hooks/useRecorder';
+import type { NoteType } from '@/lib/prompts';
 
 interface RecordingContextValue {
   /** Current recording status */
@@ -38,6 +39,12 @@ interface RecordingContextValue {
 
   /** Reset recording state after completion/error */
   reset: () => void;
+
+  /** Current note type for recording */
+  noteType: NoteType;
+
+  /** Set note type for next recording */
+  setNoteType: (noteType: NoteType) => void;
 }
 
 const RecordingContext = createContext<RecordingContextValue | null>(null);

@@ -1,14 +1,25 @@
 /**
  * Layout Component
  *
- * Main application layout with header, user info, and sign out button.
+ * Main application layout with header, user info, and profile dropdown menu.
  * Provides consistent spacing and responsive design across all pages.
  */
 
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useUserProfile } from '@/context/UserProfileContext';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ProfileEditModal } from '@/components/ProfileEditModal';
+import { ChevronDown, User, LogOut } from 'lucide-react';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -16,6 +27,8 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { user, signOut } = useAuth();
+  const { profile } = useUserProfile();
+  const [profileEditOpen, setProfileEditOpen] = useState(false);
 
   const handleSignOut = async () => {
     try {
@@ -33,20 +46,34 @@ export function Layout({ children }: LayoutProps) {
           {/* App Name */}
           <h1 className="text-xl font-bold text-foreground">ScribeVault</h1>
 
-          {/* User Info & Sign Out */}
+          {/* User Profile Dropdown */}
           {user && (
-            <div className="flex items-center gap-3">
-              {/* User Email/Name */}
-              <div className="hidden text-right sm:block">
-                <p className="text-sm font-medium text-foreground">{user.displayName || 'User'}</p>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
-              </div>
-
-              {/* Sign Out Button */}
-              <Button variant="outline" size="sm" onClick={handleSignOut} className="text-sm">
-                Sign Out
-              </Button>
-            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="gap-2">
+                  <div className="text-right">
+                    <p className="text-sm font-medium">
+                      {profile?.name || user.displayName || 'User'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {profile?.credentials || user.email}
+                    </p>
+                  </div>
+                  <ChevronDown className="h-4 w-4 opacity-50" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => setProfileEditOpen(true)}>
+                  <User className="mr-2 h-4 w-4" />
+                  Edit Profile
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleSignOut}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           )}
         </div>
       </header>
@@ -54,6 +81,9 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main Content */}
       <main className="mx-auto max-w-4xl p-4">{children}</main>
+
+      {/* Profile Edit Modal */}
+      <ProfileEditModal open={profileEditOpen} onOpenChange={setProfileEditOpen} />
     </div>
   );
 }

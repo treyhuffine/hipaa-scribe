@@ -2,7 +2,7 @@
  * useRecorder Hook
  *
  * Manages audio recording with MediaRecorder API.
- * Implements closure pattern to capture vault secret at recording start,
+ * Implements closure pattern to capture vault secret and note type at recording start,
  * ensuring encryption can complete even if session locks mid-recording.
  */
 
@@ -11,19 +11,23 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useVault } from '@/context/VaultContext';
 import { useAuth } from '@/context/AuthContext';
+import { useUserProfile } from '@/context/UserProfileContext';
 import { deriveVaultKey, encryptData } from '@/lib/crypto';
 import { getBrowserSalt, saveEncryptedNoteForUser } from '@/lib/storage';
 import { SESSION_CONFIG } from '@/lib/constants';
+import type { NoteType } from '@/lib/prompts';
 
 export type RecordingStatus = 'idle' | 'recording' | 'processing' | 'complete' | 'error';
 
 export function useRecorder() {
   const { user } = useAuth();
   const { getVaultSecretForRecording, setRecordingInProgress } = useVault();
+  const { preferences } = useUserProfile();
 
   const [status, setStatus] = useState<RecordingStatus>('idle');
   const [duration, setDuration] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [noteType, setNoteType] = useState<NoteType>('soap');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -36,10 +40,18 @@ export function useRecorder() {
   const capturedUidRef = useRef<string | null>(null);
   const capturedSessionIdRef = useRef<string | null>(null);
   const capturedDurationRef = useRef<number>(0);
+  const capturedNoteTypeRef = useRef<NoteType>('soap');
+
+  // Load last-used note type from preferences
+  useEffect(() => {
+    if (preferences?.lastNoteType) {
+      setNoteType(preferences.lastNoteType);
+    }
+  }, [preferences]);
 
   const startRecording = useCallback(async () => {
     try {
-      // Capture vault secret and uid BEFORE starting
+      // Capture vault secret, uid, and note type BEFORE starting
       // These are held in closure even if screen locks mid-recording
       const secret = getVaultSecretForRecording();
       if (!secret || !user) {
@@ -47,6 +59,7 @@ export function useRecorder() {
       }
       capturedSecretRef.current = secret;
       capturedUidRef.current = user.uid;
+      capturedNoteTypeRef.current = noteType;
 
       // Create recording session (verifies auth, lasts 90min)
       const idToken = await user.getIdToken();
@@ -98,10 +111,11 @@ export function useRecorder() {
 
           const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
 
-          // Call API to transcribe and generate SOAP note
+          // Call API to transcribe and generate clinical note
           const formData = new FormData();
           formData.append('audio', audioBlob, 'recording.webm');
           formData.append('sessionId', sessionId);
+          formData.append('noteType', capturedNoteTypeRef.current);
 
           const response = await fetch('/api/scribe', {
             method: 'POST',
@@ -122,7 +136,7 @@ export function useRecorder() {
           const noteData = JSON.stringify({
             transcript,
             output,
-            type: 'soap', // Default to SOAP format (UI for type selection will be added later)
+            type: capturedNoteTypeRef.current,
             duration: recordedDuration,
             source: 'audio',
             createdAt: Date.now(),
@@ -149,11 +163,12 @@ export function useRecorder() {
           setError(err instanceof Error ? err.message : 'Processing failed');
           setStatus('error');
         } finally {
-          // Clear captured secrets
+          // Clear captured secrets and state
           capturedSecretRef.current = null;
           capturedUidRef.current = null;
           capturedSessionIdRef.current = null;
           capturedDurationRef.current = 0;
+          capturedNoteTypeRef.current = 'soap';
 
           // Stop all tracks
           streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -191,7 +206,7 @@ export function useRecorder() {
       setStatus('error');
       setRecordingInProgress(false);
     }
-  }, [user, getVaultSecretForRecording, setRecordingInProgress]);
+  }, [user, getVaultSecretForRecording, setRecordingInProgress, noteType]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -233,5 +248,7 @@ export function useRecorder() {
     stopRecording,
     reset,
     stream: streamRef.current,
+    noteType,
+    setNoteType,
   };
 }
