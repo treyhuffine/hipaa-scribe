@@ -22,7 +22,7 @@ export type RecordingStatus = 'idle' | 'recording' | 'processing' | 'complete' |
 export function useRecorder() {
   const { user } = useAuth();
   const { getVaultSecretForRecording, setRecordingInProgress } = useVault();
-  const { preferences } = useUserProfile();
+  const { preferences, profile } = useUserProfile();
 
   const [status, setStatus] = useState<RecordingStatus>('idle');
   const [duration, setDuration] = useState(0);
@@ -41,6 +41,7 @@ export function useRecorder() {
   const capturedSessionIdRef = useRef<string | null>(null);
   const capturedDurationRef = useRef<number>(0);
   const capturedNoteTypeRef = useRef<NoteType>('soap');
+  const capturedProfileRef = useRef<{ name: string; credentials: string } | null>(null);
 
   // Load last-used note type from preferences
   useEffect(() => {
@@ -61,12 +62,20 @@ export function useRecorder() {
       capturedUidRef.current = user.uid;
       capturedNoteTypeRef.current = noteType;
 
+      // Capture profile info for recording banner display
+      if (profile?.name) {
+        capturedProfileRef.current = {
+          name: profile.name || user.email || 'Unknown',
+          credentials: profile.credentials || '',
+        };
+      }
+
       // Create recording session (verifies auth, lasts 90min)
       const idToken = await user.getIdToken();
       const sessionResponse = await fetch('/api/recording-session/create', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${idToken}`,
+          Authorization: `Bearer ${idToken}`,
           'Content-Type': 'application/json',
         },
       });
@@ -144,15 +153,18 @@ export function useRecorder() {
           const encrypted = await encryptData(key, noteData);
 
           // Save encrypted note with user-specific key
-          await saveEncryptedNoteForUser({
-            id: crypto.randomUUID(),
-            timestamp: Date.now(),
-            iv: encrypted.iv,
-            data: encrypted.ciphertext,
-          }, uid);
+          await saveEncryptedNoteForUser(
+            {
+              id: crypto.randomUUID(),
+              timestamp: Date.now(),
+              iv: encrypted.iv,
+              data: encrypted.ciphertext,
+            },
+            uid
+          );
 
           // Small delay to ensure IndexedDB transaction commits
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise((resolve) => setTimeout(resolve, 100));
 
           // Trigger notes refresh via custom event
           window.dispatchEvent(new CustomEvent('noteAdded'));
@@ -169,6 +181,7 @@ export function useRecorder() {
           capturedSessionIdRef.current = null;
           capturedDurationRef.current = 0;
           capturedNoteTypeRef.current = 'soap';
+          capturedProfileRef.current = null;
 
           // Stop all tracks
           streamRef.current?.getTracks().forEach((track) => track.stop());
@@ -206,7 +219,7 @@ export function useRecorder() {
       setStatus('error');
       setRecordingInProgress(false);
     }
-  }, [user, getVaultSecretForRecording, setRecordingInProgress, noteType]);
+  }, [user, getVaultSecretForRecording, setRecordingInProgress, noteType, profile]);
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -250,5 +263,6 @@ export function useRecorder() {
     stream: streamRef.current,
     noteType,
     setNoteType,
+    capturedProfile: capturedProfileRef.current,
   };
 }

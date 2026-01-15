@@ -18,16 +18,28 @@
 
 import { useEffect, useState } from 'react';
 import { useRecording } from '@/context/RecordingContext';
+import { useVault } from '@/context/VaultContext';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Square, CheckCircle, AlertCircle, FileText } from 'lucide-react';
+import { Mic, Square, CheckCircle, AlertCircle, FileText, Lock } from 'lucide-react';
 import { LiveWaveform } from '@/components/ui/live-waveform';
 import { QuickNoteDialog } from '@/components/QuickNoteDialog';
 import { NoteTypeSelector } from '@/components/NoteTypeSelector';
 
 export function Recorder() {
-  const { status, duration, remainingTime, error, startRecording, stopRecording, reset, stream, noteType, setNoteType } =
-    useRecording();
+  const {
+    status,
+    duration,
+    remainingTime,
+    error,
+    startRecording,
+    stopRecording,
+    reset,
+    stream,
+    noteType,
+    setNoteType,
+  } = useRecording();
+  const { lockNow } = useVault();
 
   const [quickNoteOpen, setQuickNoteOpen] = useState(false);
 
@@ -108,11 +120,15 @@ export function Recorder() {
           )}
         </div>
 
-        {/* Stop Button - only during recording */}
+        {/* Action Buttons - only during recording */}
         {status === 'recording' && (
-          <div className="w-full flex items-center">
-            <Button onClick={handleStop} size="lg" className="mx-auto" variant="destructive">
-              <Square className="mr-2 h-5 w-5" />
+          <div className="w-full flex items-center justify-center gap-3">
+            <Button onClick={lockNow} size="lg" variant="outline">
+              <Lock className="h-5 w-5" />
+              Lock Screen
+            </Button>
+            <Button onClick={handleStop} size="lg" variant="destructive">
+              <Square className="h-5 w-5" />
               Stop Recording
             </Button>
           </div>

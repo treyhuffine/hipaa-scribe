@@ -53,3 +53,28 @@ export const SESSION_CONFIG = {
   /** Interval for running janitor cleanup process (5 minutes in milliseconds) */
   JANITOR_INTERVAL_MS: 5 * 60 * 1000,
 } as const;
+
+/**
+ * Dev mode detection
+ *
+ * Checks if the app is running in development mode based on NEXT_PUBLIC_APP_STAGE env var.
+ * Dev mode enables testing utilities and shortened timeouts.
+ */
+export const IS_DEV_MODE = process.env.NEXT_PUBLIC_APP_STAGE !== 'production';
+
+/**
+ * Dev mode session config (shortened timeouts for testing)
+ *
+ * These values replace SESSION_CONFIG when IS_DEV_MODE is true.
+ * Allows rapid testing of idle timeout and recording features.
+ */
+export const DEV_SESSION_CONFIG = {
+  /** Idle timeout in dev mode (1 minute in milliseconds) */
+  IDLE_TIMEOUT_MS: 1 * 60 * 1000,
+
+  /** Idle warning threshold in dev mode (30 seconds in milliseconds) */
+  IDLE_WARNING_MS: 30 * 1000,
+
+  /** Maximum recording duration in dev mode (2 minutes in milliseconds) */
+  MAX_RECORDING_MS: 2 * 60 * 1000,
+} as const;

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { IS_DEV_MODE } from '@/lib/constants';
 
 interface IdleWarningSheetProps {
   isVisible: boolean;
@@ -26,9 +27,11 @@ export function IdleWarningSheet({
       <div className="max-w-2xl mx-auto p-4 space-y-3">
         {/* Warning Message */}
         <p className="text-sm text-foreground">
-          You have been idle {idleMinutes} {idleMinutes === 1 ? 'minute' : 'minutes'}. At 15 minutes
-          the screen will lock
-          {recordingInProgress && ', but if you have an active recording it will continue'}.
+          You have been idle {idleMinutes} {idleMinutes === 1 ? 'minute' : 'minutes'}. At{' '}
+          {IS_DEV_MODE ? '1 minute' : '15 minutes'} the screen will lock
+          {recordingInProgress && (
+            <span className="font-semibold"> (your active recording will continue)</span>
+          )}.
         </p>
 
         {/* Action Buttons */}

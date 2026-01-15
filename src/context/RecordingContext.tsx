@@ -2,8 +2,8 @@
  * Recording Context
  *
  * Provides global access to recording state across components.
- * This allows LockScreen to check if recording is in progress
- * and display RecordingLockScreen when appropriate.
+ * This allows AuthScreen to show recording banner when locked
+ * and recording is in progress.
  *
  * Uses the useRecorder hook internally and exposes its state/functions
  * to all child components.
@@ -45,6 +45,9 @@ interface RecordingContextValue {
 
   /** Set note type for next recording */
   setNoteType: (noteType: NoteType) => void;
+
+  /** Captured profile info from when recording started (survives sign-out) */
+  capturedProfile: { name: string; credentials: string } | null;
 }
 
 const RecordingContext = createContext<RecordingContextValue | null>(null);

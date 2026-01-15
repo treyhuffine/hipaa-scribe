@@ -14,10 +14,8 @@ import { useRouter } from 'next/router';
 import { useAuth } from '@/context/AuthContext';
 import { useUserProfile } from '@/context/UserProfileContext';
 import { useVault } from '@/context/VaultContext';
-import { useRecording } from '@/context/RecordingContext';
 import { Layout } from '@/components/Layout';
 import { LockScreen } from '@/components/LockScreen';
-import { RecordingLockScreen } from '@/components/RecordingLockScreen';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { Recorder } from '@/components/Recorder';
 import { NotesList } from '@/components/NotesList';
@@ -29,7 +27,6 @@ export default function Home() {
   const { user, loading: authLoading } = useAuth();
   const { isProfileComplete, loading: profileLoading } = useUserProfile();
   const { isLocked, isLoading: vaultLoading, vaultKey } = useVault();
-  const { status: recordingStatus, duration, stopRecording } = useRecording();
 
   /**
    * Auth guard: redirect to login if not authenticated
@@ -81,18 +78,8 @@ export default function Home() {
     return <ProfileSetupModal open={true} />;
   }
 
-  // Show recording lock screen if locked but recording is in progress
-  // This happens when session would lock but recording is still active
-  if (isLocked && recordingStatus === 'recording') {
-    return (
-      <RecordingLockScreen
-        duration={duration}
-        onStopRecording={stopRecording}
-      />
-    );
-  }
-
   // Show lock screen when vault is locked or key not available
+  // AuthScreen will automatically show recording banner if recording is active
   if (isLocked || !vaultKey) {
     return <LockScreen />;
   }

@@ -13,7 +13,8 @@ import { useAuth } from './AuthContext';
 import { getOrCreateVaultSecret } from '@/lib/vault';
 import { deriveVaultKey } from '@/lib/crypto';
 import { getBrowserSalt, clearUserData } from '@/lib/storage';
-import { SESSION_CONFIG } from '@/lib/constants';
+import { SESSION_CONFIG, IS_DEV_MODE, DEV_SESSION_CONFIG } from '@/lib/constants';
+import { toast } from 'sonner';
 
 interface VaultContextValue {
   // State
@@ -111,6 +112,13 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
    * Browser_salt is kept (reusable for same user on this device).
    */
   const lock = useCallback(async () => {
+    // Show toast if recording is in progress
+    if (recordingInProgressRef.current) {
+      toast.info('Your encounter will continue recording.', {
+        duration: 5000,
+      });
+    }
+
     // Clear user data from IndexedDB (notes only, keep browser_salt)
     if (user) {
       await clearUserData(user.uid);
@@ -149,11 +157,22 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
 
       setIdleMinutes(currentIdleMinutes);
 
-      // Show warning at 10-14 minutes, hide at 15+
-      if (currentIdleMinutes >= 10 && currentIdleMinutes < 15) {
+      // Use dev mode timeouts if enabled
+      const warningMs = IS_DEV_MODE
+        ? DEV_SESSION_CONFIG.IDLE_WARNING_MS
+        : SESSION_CONFIG.IDLE_WARNING_MS;
+      const timeoutMs = IS_DEV_MODE
+        ? DEV_SESSION_CONFIG.IDLE_TIMEOUT_MS
+        : SESSION_CONFIG.IDLE_TIMEOUT_MS;
+
+      // Show warning based on timeout thresholds
+      const warningMinutes = warningMs / (60 * 1000);
+      const timeoutMinutes = timeoutMs / (60 * 1000);
+
+      if (currentIdleMinutes >= warningMinutes && currentIdleMinutes < timeoutMinutes) {
         setIsIdleWarningVisible(true);
-      } else if (currentIdleMinutes >= 15) {
-        // Hide warning at 15+ minutes (whether lock happens or not)
+      } else if (currentIdleMinutes >= timeoutMinutes) {
+        // Hide warning at timeout (whether lock happens or not)
         setIsIdleWarningVisible(false);
       }
 
@@ -162,8 +181,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // Lock at 15+ minutes
-      if (idleTime > SESSION_CONFIG.IDLE_TIMEOUT_MS && vaultKey && !isLocked) {
+      // Lock when timeout is reached
+      if (idleTime > timeoutMs && vaultKey && !isLocked) {
         setIsIdleWarningVisible(false); // Hide warning when locking
         lock();
       }
