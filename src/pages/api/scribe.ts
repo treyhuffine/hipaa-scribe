@@ -16,7 +16,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import formidable from 'formidable';
 import fs from 'fs';
 import { adminDb } from '@/lib/firebase-admin';
-import { groq, SOAP_SYSTEM_PROMPT } from '@/lib/groq';
+import { groq } from '@/lib/groq';
+import { getPromptForNoteType, type NoteType } from '@/lib/prompts';
 
 /**
  * Disable Next.js body parser to handle multipart/form-data manually
@@ -29,7 +30,7 @@ export const config = {
 
 interface ScribeResponse {
   transcript: string;
-  soapNote: string;
+  output: string;  // RENAMED from soapNote for multi-format support
 }
 
 interface ScribeError {
@@ -40,9 +41,14 @@ interface ScribeError {
 /**
  * Parse multipart form data
  *
- * Extracts audio file and sessionId from the request.
+ * Extracts audio file, sessionId, and optional noteType/customInstructions from the request.
  */
-async function parseForm(req: NextApiRequest): Promise<{ audioPath: string; sessionId: string }> {
+async function parseForm(req: NextApiRequest): Promise<{
+  audioPath: string;
+  sessionId: string;
+  noteType: NoteType;
+  customInstructions?: string;
+}> {
   return new Promise((resolve, reject) => {
     const form = formidable({
       maxFileSize: 100 * 1024 * 1024, // 100MB max
@@ -71,9 +77,26 @@ async function parseForm(req: NextApiRequest): Promise<{ audioPath: string; sess
         return;
       }
 
+      // Extract noteType (optional, defaults to 'soap')
+      const noteTypeField = Array.isArray(fields.noteType) ? fields.noteType[0] : fields.noteType;
+      const noteType: NoteType = (noteTypeField as NoteType) || 'soap';
+
+      // Extract customInstructions (optional, required only for custom type)
+      const customInstructions = Array.isArray(fields.customInstructions)
+        ? fields.customInstructions[0]
+        : fields.customInstructions;
+
+      // Validation for custom type
+      if (noteType === 'custom' && !customInstructions) {
+        reject(new Error('Custom instructions required for custom note type'));
+        return;
+      }
+
       resolve({
         audioPath: audioFile.filepath,
         sessionId,
+        noteType,
+        customInstructions,
       });
     });
   });
@@ -94,7 +117,7 @@ export default async function handler(
 
   try {
     // Parse multipart form data
-    const { audioPath: path, sessionId } = await parseForm(req);
+    const { audioPath: path, sessionId, noteType, customInstructions } = await parseForm(req);
     audioPath = path;
 
     // Validate recording session
@@ -157,22 +180,25 @@ export default async function handler(
     // IMPORTANT: Do NOT log the transcript (PHI)
     console.log('Transcription complete');
 
-    // Step 2: Format SOAP note with Groq Llama
-    console.log('Generating SOAP note...');
+    // Step 2: Format clinical note with Groq Llama
+    console.log(`Generating ${noteType} note...`);
+
+    // Get appropriate system prompt based on note type
+    const systemPrompt = getPromptForNoteType(noteType, customInstructions);
 
     const completion = await groq.chat.completions.create({
       model: 'openai/gpt-oss-120b',
       messages: [
-        { role: 'system', content: SOAP_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         { role: 'user', content: transcript },
       ],
       temperature: 0.1,
     });
 
-    const soapNote = completion.choices[0]?.message?.content || '';
+    const output = completion.choices[0]?.message?.content || '';
 
-    // IMPORTANT: Do NOT log the SOAP note (PHI)
-    console.log('SOAP note generated');
+    // IMPORTANT: Do NOT log the clinical note (PHI)
+    console.log('Clinical note generated');
 
     // Cleanup: Delete temporary audio file
     if (audioPath) {
@@ -184,10 +210,10 @@ export default async function handler(
       }
     }
 
-    // Return transcript and SOAP note
+    // Return transcript and formatted clinical note
     return res.status(200).json({
       transcript,
-      soapNote,
+      output,
     });
   } catch (error) {
     console.error('Scribe API error:', error);

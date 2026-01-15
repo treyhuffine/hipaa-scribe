@@ -72,20 +72,44 @@ export async function loadAllNotes(key: CryptoKey): Promise<DecryptedNote[]> {
         encryptedNote.data
       );
 
-      // Parse JSON
+      // Parse JSON with backward compatibility for old notes
       const noteData = JSON.parse(decryptedData) as {
         transcript: string;
-        soapNote: string;
-        duration: number;
+        soapNote?: string;  // Old field name
+        output?: string;    // New field name
+        type?: import('@/lib/prompts').NoteType;
+        customInstructions?: string;
+        duration?: number;
+        source?: 'audio' | 'text';
       };
 
-      // Reconstruct DecryptedNote
+      // MIGRATION: Handle old notes with "soapNote" field
+      let output = noteData.output;
+      let type: import('@/lib/prompts').NoteType = noteData.type ?? 'soap';
+
+      if ('soapNote' in noteData && noteData.soapNote) {
+        // Old note format - migrate soapNote to output
+        output = noteData.soapNote;
+        if (!noteData.type) {
+          type = 'soap';  // Old notes were always SOAP format
+        }
+      }
+
+      // Fallback for very old notes missing both fields
+      if (!output) {
+        output = '';
+      }
+
+      // Reconstruct DecryptedNote with migration
       const decryptedNote: DecryptedNote = {
         id: encryptedNote.id,
         timestamp: encryptedNote.timestamp,
         transcript: noteData.transcript,
-        soapNote: noteData.soapNote,
-        duration: noteData.duration,
+        output,
+        type,
+        customInstructions: noteData.customInstructions,
+        duration: noteData.duration ?? 0,
+        source: noteData.source ?? 'audio',
       };
 
       decryptedNotes.push(decryptedNote);
@@ -325,18 +349,18 @@ export async function clearUserData(uid: string): Promise<void> {
  * Update a specific field in an encrypted note
  *
  * Loads note, decrypts, updates field, re-encrypts, saves back.
- * Used for updating SOAP note after regeneration with additional user input.
+ * Used for updating clinical notes after regeneration with additional user input.
  *
  * @param noteId - Note ID to update
  * @param uid - Firebase user ID
  * @param vaultKey - Vault encryption key
- * @param updates - Partial updates to apply (e.g., { soapNote: "new text" })
+ * @param updates - Partial updates to apply (e.g., { output: "new text" })
  */
 export async function updateEncryptedNoteForUser(
   noteId: string,
   uid: string,
   vaultKey: CryptoKey,
-  updates: Partial<Pick<DecryptedNote, 'soapNote' | 'transcript' | 'duration'>>
+  updates: Partial<Pick<DecryptedNote, 'output' | 'transcript' | 'duration' | 'type' | 'customInstructions'>>
 ): Promise<void> {
   const key = getUserNotesKey(uid);
   const notes = (await get<EncryptedNote[]>(key)) || [];
@@ -356,11 +380,25 @@ export async function updateEncryptedNoteForUser(
     encryptedNote.data
   );
 
+  // Parse with migration support
   const noteData = JSON.parse(decryptedData) as {
     transcript: string;
-    soapNote: string;
-    duration: number;
+    soapNote?: string;  // Old field
+    output?: string;    // New field
+    type?: import('@/lib/prompts').NoteType;
+    customInstructions?: string;
+    duration?: number;
+    source?: 'audio' | 'text';
   };
+
+  // MIGRATION: Convert old format if necessary
+  if ('soapNote' in noteData && !noteData.output) {
+    noteData.output = noteData.soapNote;
+    delete noteData.soapNote;
+  }
+  if (!noteData.type) {
+    noteData.type = 'soap';
+  }
 
   // Apply updates
   const updatedNoteData = { ...noteData, ...updates };

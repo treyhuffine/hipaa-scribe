@@ -16,24 +16,19 @@
 
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRecording } from '@/context/RecordingContext';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mic, Square, CheckCircle, AlertCircle } from 'lucide-react';
+import { Mic, Square, CheckCircle, AlertCircle, FileText } from 'lucide-react';
 import { LiveWaveform } from '@/components/ui/live-waveform';
+import { QuickNoteDialog } from '@/components/QuickNoteDialog';
 
 export function Recorder() {
-  const {
-    status,
-    duration,
-    remainingTime,
-    error,
-    startRecording,
-    stopRecording,
-    reset,
-    stream,
-  } = useRecording();
+  const { status, duration, remainingTime, error, startRecording, stopRecording, reset, stream } =
+    useRecording();
+
+  const [quickNoteOpen, setQuickNoteOpen] = useState(false);
 
   // Auto-reset after 2 seconds when status is 'complete'
   useEffect(() => {
@@ -99,9 +94,7 @@ export function Recorder() {
               <p className="text-3xl font-bold tabular-nums text-foreground">
                 {formatTime(duration)}
               </p>
-              <p className="text-sm text-muted-foreground">
-                {formatTime(remainingTime)} remaining
-              </p>
+              <p className="text-sm text-muted-foreground">{formatTime(remainingTime)} remaining</p>
             </div>
           )}
 
@@ -165,6 +158,20 @@ export function Recorder() {
 
       <p className="text-center text-lg font-medium text-foreground">Record Visit</p>
       <p className="text-center text-sm text-muted-foreground">Max 60 minute recording time</p>
+
+      {/* Quick Note button */}
+      <Button
+        onClick={() => setQuickNoteOpen(true)}
+        variant="outline"
+        size="lg"
+        className="cursor-pointer"
+      >
+        <FileText className="h-5 w-5" />
+        Quick Note
+      </Button>
+
+      {/* Quick Note Dialog */}
+      <QuickNoteDialog open={quickNoteOpen} onOpenChange={setQuickNoteOpen} />
     </div>
   );
 }

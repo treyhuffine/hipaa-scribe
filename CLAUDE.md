@@ -5,3 +5,5 @@ I'm building a minimalist (in the sense of data management) HIPAA compliant voic
 It will be a Next.js app with tailwind and Shadcn UI and TS. We will start from fresh builds in the latest. We'll use the pages router for next.js (NOT the app router)
 
 DO NOT USE THE APP ROUTER IN NEXT.JS. JUST THE PAGES ROUTER. ./src/pages
+
+ESSENTIAL: Confirm every change does not impact HIPAA compliance and that we are always inline

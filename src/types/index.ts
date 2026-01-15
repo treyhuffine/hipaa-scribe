@@ -6,6 +6,14 @@
  */
 
 /**
+ * Clinical note type - supports multiple formats
+ *
+ * Imported from prompts module for consistency.
+ * Each type has a corresponding system prompt and formatting rules.
+ */
+export type { NoteType, NoteTypeConfig } from '@/lib/prompts';
+
+/**
  * Encrypted note stored in IndexedDB
  *
  * Notes are encrypted client-side using AES-GCM before being stored.
@@ -30,6 +38,9 @@ export interface EncryptedNote {
  *
  * This represents the plaintext note data after decryption.
  * Never persisted to storage in this form.
+ *
+ * BACKWARD COMPATIBILITY: Old notes with "soapNote" field are automatically
+ * migrated to "output" at read time by storage layer.
  */
 export interface DecryptedNote {
   /** Unique identifier (UUID v4) - matches EncryptedNote.id */
@@ -38,14 +49,23 @@ export interface DecryptedNote {
   /** Unix timestamp in milliseconds when note was created */
   timestamp: number;
 
-  /** Raw transcript from Groq Whisper Turbo */
+  /** Raw transcript: For audio notes - Groq Whisper Turbo output; For text notes - original user input */
   transcript: string;
 
-  /** Formatted SOAP note from Groq Llama */
-  soapNote: string;
+  /** Formatted clinical note output (RENAMED from soapNote for multi-format support) */
+  output: string;
 
-  /** Recording duration in seconds */
-  duration: number;
+  /** Clinical note type/format - defaults to 'soap' for backward compatibility */
+  type: import('@/lib/prompts').NoteType;
+
+  /** Custom formatting instructions (only present when type is 'custom') */
+  customInstructions?: string;
+
+  /** Recording duration in seconds (only present for audio notes) */
+  duration?: number;
+
+  /** Source of the note: 'audio' for recorded visits, 'text' for quick notes */
+  source: 'audio' | 'text';
 }
 
 
@@ -114,11 +134,14 @@ export interface VaultContextValue {
 
 /**
  * API response from /api/scribe endpoint
+ *
+ * BACKWARD COMPATIBILITY: Field renamed from "soapNote" to "output"
+ * to support multiple note formats.
  */
 export interface ScribeResponse {
   /** Raw transcript from Groq Whisper */
   transcript: string;
 
-  /** Formatted SOAP note from Groq Llama */
-  soapNote: string;
+  /** Formatted clinical note output (RENAMED from soapNote) */
+  output: string;
 }

@@ -22,8 +22,14 @@ interface VaultContextValue {
   isLocked: boolean;
   isLoading: boolean;
 
+  // Idle warning state
+  isIdleWarningVisible: boolean;
+  idleMinutes: number;
+
   // Actions
   lock: () => Promise<void>;
+  dismissIdleWarning: () => void;
+  lockNow: () => Promise<void>;
 
   // For recording closure
   getVaultSecretForRecording: () => string | null;
@@ -41,6 +47,8 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   const [vaultSecret, setVaultSecret] = useState<string | null>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isIdleWarningVisible, setIsIdleWarningVisible] = useState(false);
+  const [idleMinutes, setIdleMinutes] = useState(0);
 
   const lastActivityRef = useRef<number>(Date.now());
   const recordingInProgressRef = useRef<boolean>(false);
@@ -95,38 +103,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     initializeVault();
   }, [initializeVault]);
 
-  // Activity tracking
-  useEffect(() => {
-    const updateActivity = () => {
-      lastActivityRef.current = Date.now();
-    };
-
-    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
-    events.forEach((event) => window.addEventListener(event, updateActivity));
-
-    return () => {
-      events.forEach((event) => window.removeEventListener(event, updateActivity));
-    };
-  }, []);
-
-  // Idle timeout check
-  useEffect(() => {
-    const checkIdle = () => {
-      // Never lock during recording
-      if (recordingInProgressRef.current) {
-        return;
-      }
-
-      const idleTime = Date.now() - lastActivityRef.current;
-      if (idleTime > SESSION_CONFIG.IDLE_TIMEOUT_MS && vaultKey && !isLocked) {
-        lock();
-      }
-    };
-
-    const interval = setInterval(checkIdle, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
-  }, [vaultKey, isLocked]);
-
   /**
    * Lock vault and sign out user
    *
@@ -149,6 +125,54 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     await signOut();
   }, [user, signOut]);
 
+  // Activity tracking
+  useEffect(() => {
+    const updateActivity = () => {
+      lastActivityRef.current = Date.now();
+      setIdleMinutes(0);
+      // Note: Activity resets timer but does NOT dismiss warning
+    };
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart'];
+    events.forEach((event) => window.addEventListener(event, updateActivity));
+
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, updateActivity));
+    };
+  }, []);
+
+  // Idle timeout check
+  useEffect(() => {
+    const checkIdle = () => {
+      const idleTime = Date.now() - lastActivityRef.current;
+      const currentIdleMinutes = Math.floor(idleTime / (60 * 1000));
+
+      setIdleMinutes(currentIdleMinutes);
+
+      // Show warning at 10-14 minutes, hide at 15+
+      if (currentIdleMinutes >= 10 && currentIdleMinutes < 15) {
+        setIsIdleWarningVisible(true);
+      } else if (currentIdleMinutes >= 15) {
+        // Hide warning at 15+ minutes (whether lock happens or not)
+        setIsIdleWarningVisible(false);
+      }
+
+      // Never lock during recording
+      if (recordingInProgressRef.current) {
+        return;
+      }
+
+      // Lock at 15+ minutes
+      if (idleTime > SESSION_CONFIG.IDLE_TIMEOUT_MS && vaultKey && !isLocked) {
+        setIsIdleWarningVisible(false); // Hide warning when locking
+        lock();
+      }
+    };
+
+    const interval = setInterval(checkIdle, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, [vaultKey, isLocked, lock]);
+
   // Provide vault secret for recording closure
   const getVaultSecretForRecording = useCallback(() => {
     return vaultSecret;
@@ -159,6 +183,19 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     recordingInProgressRef.current = inProgress;
   }, []);
 
+  // Dismiss warning and reset timer
+  const dismissIdleWarning = useCallback(() => {
+    setIsIdleWarningVisible(false);
+    lastActivityRef.current = Date.now();
+    setIdleMinutes(0);
+  }, []);
+
+  // Lock immediately (triggered by "Lock now" button)
+  const lockNow = useCallback(async () => {
+    setIsIdleWarningVisible(false);
+    await lock();
+  }, [lock]);
+
   return (
     <VaultContext.Provider
       value={{
@@ -166,7 +203,11 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
         vaultSecret,
         isLocked,
         isLoading,
+        isIdleWarningVisible,
+        idleMinutes,
         lock,
+        dismissIdleWarning,
+        lockNow,
         getVaultSecretForRecording,
         setRecordingInProgress,
       }}

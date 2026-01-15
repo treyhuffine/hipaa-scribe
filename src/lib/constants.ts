@@ -41,6 +41,9 @@ export const SESSION_CONFIG = {
   /** Idle timeout before vault auto-locks (15 minutes in milliseconds) */
   IDLE_TIMEOUT_MS: 15 * 60 * 1000,
 
+  /** Idle warning threshold before showing warning sheet (10 minutes in milliseconds) */
+  IDLE_WARNING_MS: 10 * 60 * 1000,
+
   /** Maximum recording duration before auto-stop (60 minutes in milliseconds) */
   MAX_RECORDING_MS: 60 * 60 * 1000,
 

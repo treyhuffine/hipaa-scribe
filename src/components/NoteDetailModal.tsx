@@ -34,7 +34,7 @@ interface NoteDetailModalProps {
 }
 
 export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDetailModalProps) {
-  const [soapNote, setSoapNote] = useState(note.soapNote);
+  const [output, setOutput] = useState(note.output);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [activeSection, setActiveSection] = useState<'notes' | 'transcript'>('notes');
@@ -45,11 +45,11 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
 
   // Reset state when note changes
   useEffect(() => {
-    setSoapNote(note.soapNote);
+    setOutput(note.output);
     setUserInput('');
     setActiveSection('notes');
     setCopiedItem(null);
-  }, [note.id, note.soapNote]);
+  }, [note.id, note.output]);
 
   /**
    * Format timestamp as "3:45PM - 3:57PM on Jan 8"
@@ -83,6 +83,28 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
   };
 
   /**
+   * Format simple timestamp for text notes: "Jan 8 at 3:45PM"
+   */
+  const formatSimpleTimestamp = (timestamp: number): string => {
+    const date = new Date(timestamp);
+
+    const dateStr = date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+
+    const timeStr = date
+      .toLocaleString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      .replace(' ', '');
+
+    return `${dateStr} at ${timeStr}`;
+  };
+
+  /**
    * Copy text to clipboard
    */
   const handleCopy = async (text: string, type: 'soap' | 'transcript') => {
@@ -111,31 +133,31 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
     setIsRegenerating(true);
 
     try {
-      // Call API to regenerate SOAP note
+      // Call API to regenerate note
       const response = await fetch('/api/regenerate-soap', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           transcript: note.transcript,
           userInput: userInput.trim(),
-          originalSoapNote: soapNote,
+          originalSoapNote: output,  // API still uses old field name - will be updated later
         }),
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to regenerate SOAP note');
+        throw new Error(errorData.error || 'Failed to regenerate note');
       }
 
       const data = await response.json();
 
-      // Update IndexedDB with new encrypted SOAP note
+      // Update IndexedDB with new encrypted note
       await updateEncryptedNoteForUser(note.id, user.uid, vaultKey, {
-        soapNote: data.soapNote,
+        output: data.soapNote || data.output,  // Support both field names for now
       });
 
       // Update UI
-      setSoapNote(data.soapNote);
+      setOutput(data.soapNote || data.output);
       setUserInput('');
       toast.success('SOAP note updated successfully');
     } catch (error) {
@@ -153,7 +175,9 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
         <div className="fixed top-0 left-0 right-0 bg-background border-b z-10 px-6 py-4">
           <div className="flex items-center justify-between max-w-[960px] mx-auto">
             <h2 className="text-xl font-semibold">
-              {formatTimeRange(note.timestamp, note.duration)}
+              {note.source === 'text'
+                ? formatSimpleTimestamp(note.timestamp)
+                : formatTimeRange(note.timestamp, note.duration ?? 0)}
             </h2>
             <DialogClose asChild>
               <Button variant="ghost" size="icon">
@@ -200,7 +224,7 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
                 size="sm"
                 onClick={() =>
                   handleCopy(
-                    activeSection === 'notes' ? soapNote : note.transcript,
+                    activeSection === 'notes' ? output : note.transcript,
                     activeSection === 'notes' ? 'soap' : 'transcript'
                   )
                 }
@@ -226,10 +250,10 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
                 {isRegenerating ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span>Regenerating SOAP note...</span>
+                    <span>Regenerating note...</span>
                   </div>
                 ) : (
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{soapNote}</div>
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{output}</div>
                 )}
               </div>
             )}

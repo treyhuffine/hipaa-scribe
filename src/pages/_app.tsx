@@ -12,10 +12,33 @@
 
 import '@/styles/globals.css';
 import type { AppProps } from 'next/app';
-import { AuthProvider } from '@/context/AuthContext';
-import { VaultProvider } from '@/context/VaultContext';
-import { RecordingProvider } from '@/context/RecordingContext';
+import { AuthProvider, useAuth } from '@/context/AuthContext';
+import { VaultProvider, useVault } from '@/context/VaultContext';
+import { RecordingProvider, useRecording } from '@/context/RecordingContext';
+import { IdleWarningSheet } from '@/components/IdleWarningSheet';
 import { Toaster } from 'sonner';
+
+function IdleWarningContainer() {
+  const { user } = useAuth();
+  const { isLocked, vaultKey, isIdleWarningVisible, idleMinutes, dismissIdleWarning, lockNow } = useVault();
+  const { status } = useRecording();
+
+  // Only show warning when:
+  // 1. User is authenticated
+  // 2. Screen is NOT locked
+  // 3. Vault is initialized
+  const shouldShowWarning = user !== null && !isLocked && vaultKey !== null && isIdleWarningVisible;
+
+  return (
+    <IdleWarningSheet
+      isVisible={shouldShowWarning}
+      idleMinutes={idleMinutes}
+      recordingInProgress={status === 'recording'}
+      onDismiss={dismissIdleWarning}
+      onLockNow={lockNow}
+    />
+  );
+}
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
@@ -23,6 +46,7 @@ export default function App({ Component, pageProps }: AppProps) {
       <VaultProvider>
         <RecordingProvider>
           <Component {...pageProps} />
+          <IdleWarningContainer />
           <Toaster position="top-right" richColors />
         </RecordingProvider>
       </VaultProvider>

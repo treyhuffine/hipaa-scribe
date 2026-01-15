@@ -63,18 +63,43 @@ export function useNotes(): UseNotesReturn {
             encryptedNote.data
           );
 
+          // Parse with migration support for old notes
           const noteData = JSON.parse(decryptedData) as {
             transcript: string;
-            soapNote: string;
-            duration: number;
+            soapNote?: string;  // Old field name
+            output?: string;    // New field name
+            type?: import('@/lib/prompts').NoteType;
+            customInstructions?: string;
+            duration?: number;
+            source?: 'audio' | 'text';
           };
+
+          // MIGRATION: Handle old notes with "soapNote" field
+          let output = noteData.output;
+          let type: import('@/lib/prompts').NoteType = noteData.type ?? 'soap';
+
+          if ('soapNote' in noteData && noteData.soapNote) {
+            // Old note format - migrate soapNote to output
+            output = noteData.soapNote;
+            if (!noteData.type) {
+              type = 'soap';  // Old notes were always SOAP format
+            }
+          }
+
+          // Fallback for very old notes missing both fields
+          if (!output) {
+            output = '';
+          }
 
           decryptedNotes.push({
             id: encryptedNote.id,
             timestamp: encryptedNote.timestamp,
             transcript: noteData.transcript,
-            soapNote: noteData.soapNote,
-            duration: noteData.duration,
+            output,
+            type,
+            customInstructions: noteData.customInstructions,
+            duration: noteData.duration ?? 0,
+            source: noteData.source ?? 'audio',
           });
         } catch (decryptError) {
           console.error(`Failed to decrypt note ${encryptedNote.id}:`, decryptError);

@@ -72,6 +72,28 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
     return `${mins} min ${secs} sec`;
   };
 
+  /**
+   * Format simple timestamp for text notes: "Jan 8 at 3:45PM"
+   */
+  const formatSimpleTimestamp = (timestamp: number): string => {
+    const date = new Date(timestamp);
+
+    const dateStr = date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+
+    const timeStr = date
+      .toLocaleString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true,
+      })
+      .replace(' ', ''); // Remove space before AM/PM
+
+    return `${dateStr} at ${timeStr}`;
+  };
+
   return (
     <>
       <Card
@@ -82,9 +104,13 @@ export function NoteCard({ note, onDelete }: NoteCardProps) {
           <div className="flex items-start justify-between">
             <div>
               <CardTitle className="text-lg">
-                {formatTimeRange(note.timestamp, note.duration)}
+                {note.source === 'text'
+                  ? formatSimpleTimestamp(note.timestamp)
+                  : formatTimeRange(note.timestamp, note.duration ?? 0)}
               </CardTitle>
-              <CardDescription>{formatDuration(note.duration)}</CardDescription>
+              <CardDescription>
+                {note.source === 'text' ? 'Quick Note' : formatDuration(note.duration ?? 0)}
+              </CardDescription>
             </div>
 
             <Button variant="secondary" size="lg" className="cursor-pointer font-bold">

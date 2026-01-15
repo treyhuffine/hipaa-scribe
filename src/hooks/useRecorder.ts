@@ -112,7 +112,7 @@ export function useRecorder() {
             throw new Error('Transcription failed');
           }
 
-          const { transcript, soapNote } = await response.json();
+          const { transcript, output } = await response.json();
 
           // Get browser_salt for Layer 2 encryption
           const browserSalt = await getBrowserSalt(uid);
@@ -121,8 +121,10 @@ export function useRecorder() {
           const key = await deriveVaultKey(secret, browserSalt);
           const noteData = JSON.stringify({
             transcript,
-            soapNote,
+            output,
+            type: 'soap', // Default to SOAP format (UI for type selection will be added later)
             duration: recordedDuration,
+            source: 'audio',
             createdAt: Date.now(),
           });
           const encrypted = await encryptData(key, noteData);
