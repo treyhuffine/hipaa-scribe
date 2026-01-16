@@ -188,7 +188,7 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
         </div>
 
         {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto pt-20 pb-32">
+        <div className="flex-1 overflow-y-auto pt-20 pb-48">
           <div className="max-w-[960px] mx-auto px-6 py-6 space-y-8">
             {/* Section tabs with Copy button floated right */}
             <div className="flex items-center justify-between border-b pb-2">
