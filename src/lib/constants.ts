@@ -78,3 +78,17 @@ export const DEV_SESSION_CONFIG = {
   /** Maximum recording duration in dev mode (2 minutes in milliseconds) */
   MAX_RECORDING_MS: 2 * 60 * 1000,
 } as const;
+
+/**
+ * Environment configuration validation
+ *
+ * Logs current configuration on startup (client-side only) to help debug
+ * environment variable issues and verify correct timeout settings.
+ */
+if (typeof window !== 'undefined') {
+  console.log('ScribeVault Configuration:', {
+    stage: process.env.NEXT_PUBLIC_APP_STAGE || 'not set',
+    isDevMode: IS_DEV_MODE,
+    timeouts: IS_DEV_MODE ? DEV_SESSION_CONFIG : SESSION_CONFIG,
+  });
+}

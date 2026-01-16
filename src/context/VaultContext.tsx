@@ -12,7 +12,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from './AuthContext';
 import { getOrCreateVaultSecret } from '@/lib/vault';
 import { deriveVaultKey } from '@/lib/crypto';
-import { getBrowserSalt, clearUserData } from '@/lib/storage';
+import { getBrowserSalt } from '@/lib/storage';
 import { SESSION_CONFIG, IS_DEV_MODE, DEV_SESSION_CONFIG } from '@/lib/constants';
 import { toast } from 'sonner';
 
@@ -115,8 +115,9 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
   /**
    * Lock vault and sign out user
    *
-   * Clears vault key/secret from memory, user notes, and signs out from Firebase.
+   * Clears vault key/secret from memory and signs out from Firebase.
    * This ensures unlock requires full re-authentication.
+   * Notes remain encrypted in IndexedDB until manually deleted or cleaned by janitor (12-hour TTL).
    * Browser_salt is kept (reusable for same user on this device).
    */
   const lock = useCallback(async () => {
@@ -125,11 +126,6 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
       toast.info('Your encounter will continue recording.', {
         duration: 5000,
       });
-    }
-
-    // Clear user data from IndexedDB (notes only, keep browser_salt)
-    if (user) {
-      await clearUserData(user.uid);
     }
 
     setVaultKey(null);

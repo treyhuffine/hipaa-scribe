@@ -16,6 +16,16 @@
 
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogClose } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { X, Copy, Send, Loader2, CheckCircle } from 'lucide-react';
@@ -39,6 +49,7 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
   const [userInput, setUserInput] = useState('');
   const [activeSection, setActiveSection] = useState<'notes' | 'transcript'>('notes');
   const [copiedItem, setCopiedItem] = useState<'soap' | 'transcript' | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { vaultKey } = useVault();
   const { user } = useAuth();
@@ -49,6 +60,7 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
     setUserInput('');
     setActiveSection('notes');
     setCopiedItem(null);
+    setShowDeleteConfirm(false);
   }, [note.id, note.output]);
 
   /**
@@ -117,9 +129,29 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
       setTimeout(() => {
         setCopiedItem(null);
       }, 2000);
+
+      // Show delete confirmation after copying SOAP note
+      if (type === 'soap') {
+        setShowDeleteConfirm(true);
+      }
     } catch (err) {
       console.error('Failed to copy:', err);
       toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  /**
+   * Handle delete confirmation after copy
+   */
+  const handleDeleteConfirm = async () => {
+    try {
+      await onDelete(note.id);
+      setShowDeleteConfirm(false);
+      onOpenChange(false);
+      toast.success('Note deleted successfully');
+    } catch (err) {
+      console.error('Failed to delete note:', err);
+      toast.error('Failed to delete note');
     }
   };
 
@@ -294,6 +326,27 @@ export function NoteDetailModal({ note, open, onOpenChange, onDelete }: NoteDeta
             </form>
           </div>
         </div>
+
+        {/* Delete confirmation dialog (stacked on top of note modal) */}
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Ready to delete this note?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently remove the note from your vault.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Keep Note</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteConfirm}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
