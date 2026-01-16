@@ -42,14 +42,24 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              // Next.js requires 'unsafe-eval' in dev, 'unsafe-inline' for some runtime code
+              // For production on GCP, consider using strict-dynamic with nonces
+              process.env.NODE_ENV === 'production'
+                ? "script-src 'self' 'unsafe-inline'"
+                : "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: https:",
+              // Restrict images to self, data URIs, and specific GCP domains if needed
+              "img-src 'self' data: blob:",
               "font-src 'self' data:",
+              // Allow connections to your APIs and GCP services
               "connect-src 'self' https://*.firebaseapp.com https://*.googleapis.com https://*.google.com https://api.groq.com",
+              "media-src 'self' blob:",
+              "object-src 'none'",
               "frame-src 'none'",
+              "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
+              "upgrade-insecure-requests",
             ].join('; '),
           },
         ],
