@@ -1,12 +1,14 @@
 /**
  * Unified Authentication Screen
  *
- * Single component used for both login page and lock screen.
+ * Single component used for login, signup, email verification, and lock screen.
  * Supports both Google OAuth and email/password authentication.
  * Auto-populates email field with last logged-in email for convenience.
  *
  * Modes:
  * - 'login': Initial login page
+ * - 'signup': New user registration
+ * - 'verify-email': Email verification pending
  * - 'locked': Session locked, requires re-authentication
  */
 
@@ -19,28 +21,47 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Lock } from 'lucide-react';
 import { getLastEmail, saveLastEmail } from '@/lib/storage-utils';
+import { validatePassword, type PasswordValidation } from '@/lib/password-validation';
+import { PasswordStrengthIndicator } from '@/components/PasswordStrengthIndicator';
+import { EmailVerificationScreen } from '@/components/EmailVerificationScreen';
 
 interface AuthScreenProps {
-  mode: 'login' | 'locked';
+  mode: 'login' | 'signup' | 'verify-email' | 'locked';
+  onModeChange?: (mode: 'login' | 'signup' | 'verify-email') => void;
 }
 
-export function AuthScreen({ mode }: AuthScreenProps) {
-  const { signInWithGoogle, signInWithEmail } = useAuth();
+export function AuthScreen({ mode, onModeChange }: AuthScreenProps) {
+  const { signInWithGoogle, signInWithEmail, signUpWithEmail, sendVerificationEmail, user } = useAuth();
   const { status, capturedProfile, stopRecording, duration } = useRecording();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordValidation, setPasswordValidation] = useState<PasswordValidation | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load last email on mount
+  // Load last email on mount (only for login mode)
   useEffect(() => {
-    const lastEmail = getLastEmail();
-    if (lastEmail) {
-      setEmail(lastEmail);
+    if (mode === 'login' || mode === 'locked') {
+      const lastEmail = getLastEmail();
+      if (lastEmail) {
+        setEmail(lastEmail);
+      }
     }
-  }, []);
+  }, [mode]);
+
+  // Validate password in real-time (signup mode only)
+  useEffect(() => {
+    if (mode === 'signup' && password) {
+      setPasswordValidation(validatePassword(password));
+    } else {
+      setPasswordValidation(null);
+    }
+  }, [password, mode]);
 
   // Clear error on Escape key
   useEffect(() => {
@@ -103,11 +124,73 @@ export function AuthScreen({ mode }: AuthScreenProps) {
     }
   };
 
+  /**
+   * Handle email/password sign-up
+   */
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    // Validate password
+    const validation = validatePassword(password);
+    if (!validation.isValid) {
+      setError(validation.errors.join('. '));
+      return;
+    }
+
+    // Check password match
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    // Check terms acceptance
+    if (!termsAccepted) {
+      setError('You must accept the Terms and Privacy Policy.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      await signUpWithEmail(email, password);
+      await sendVerificationEmail();
+      // Switch to verify-email mode
+      if (onModeChange) {
+        onModeChange('verify-email');
+      }
+    } catch (error) {
+      console.error('Sign-up error:', error);
+      if (error instanceof Error) {
+        if (error.message.includes('email-already-in-use')) {
+          setError('This email is already registered. Please sign in instead.');
+        } else if (error.message.includes('weak-password')) {
+          setError('Password is too weak. Please use a stronger password.');
+        } else if (error.message.includes('invalid-email')) {
+          setError('Invalid email address.');
+        } else {
+          setError('Failed to create account. Please try again.');
+        }
+      } else {
+        setError('Failed to create account. Please try again.');
+      }
+      setIsLoading(false);
+    }
+  };
+
+  // Handle verify-email mode with dedicated component
+  if (mode === 'verify-email' && user) {
+    return <EmailVerificationScreen email={user.email || email} />;
+  }
+
   // Mode-specific content
-  const title = mode === 'locked' ? 'Session Locked' : 'ScribeVault';
+  const title = mode === 'locked' ? 'Session Locked' :
+                mode === 'signup' ? 'Create Account' : 'ScribeVault';
   const description =
     mode === 'locked'
       ? 'Your session locked due to inactivity. Please sign in again to continue.'
+      : mode === 'signup'
+      ? 'Create your HIPAA-compliant account'
       : 'HIPAA-compliant voice transcription for healthcare professionals';
   const showLockIcon = mode === 'locked';
 
@@ -206,32 +289,114 @@ export function AuthScreen({ mode }: AuthScreenProps) {
             </div>
           </div>
 
-          {/* Email/Password Sign-In */}
-          <form onSubmit={handleEmailSignIn} className="space-y-3">
-            <div className="space-y-2">
-              <Input
-                type="email"
-                placeholder="Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+          {/* Email/Password Form - Login or Signup */}
+          {mode === 'signup' ? (
+            <form onSubmit={handleSignUp} className="space-y-3">
+              <div className="space-y-2">
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  autoFocus
+                />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+                {password && (
+                  <PasswordStrengthIndicator
+                    password={password}
+                    validation={passwordValidation}
+                  />
+                )}
+                <Input
+                  type="password"
+                  placeholder="Confirm Password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+
+              {/* Terms & Privacy Checkbox */}
+              <div className="flex items-start space-x-2">
+                <Checkbox
+                  id="terms"
+                  checked={termsAccepted}
+                  onCheckedChange={(checked) => setTermsAccepted(checked === true)}
+                  disabled={isLoading}
+                />
+                <label
+                  htmlFor="terms"
+                  className="text-xs text-muted-foreground leading-relaxed cursor-pointer"
+                >
+                  I accept the{' '}
+                  <a href="/terms" target="_blank" className="underline hover:text-foreground">
+                    Terms of Service
+                  </a>{' '}
+                  and{' '}
+                  <a href="/privacy" target="_blank" className="underline hover:text-foreground">
+                    Privacy Policy
+                  </a>
+                </label>
+              </div>
+
+              <Button type="submit" disabled={isLoading} className="w-full" size="lg">
+                {isLoading ? 'Creating Account...' : 'Create Account'}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleEmailSignIn} className="space-y-3">
+              <div className="space-y-2">
+                <Input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  autoFocus={!email}
+                />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                  autoFocus={!!email}
+                />
+              </div>
+              <Button type="submit" disabled={isLoading} className="w-full" size="lg">
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+          )}
+
+          {/* Mode Toggle - Only show for login/signup modes */}
+          {mode !== 'locked' && onModeChange && (
+            <div className="text-center">
+              <Button
+                type="button"
+                variant="link"
+                onClick={() => onModeChange(mode === 'login' ? 'signup' : 'login')}
                 disabled={isLoading}
-                required
-                autoFocus={!email}
-              />
-              <Input
-                type="password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-                required
-                autoFocus={!!email}
-              />
+                className="text-sm"
+              >
+                {mode === 'login'
+                  ? "Don't have an account? Sign up"
+                  : 'Already have an account? Sign in'}
+              </Button>
             </div>
-            <Button type="submit" disabled={isLoading} className="w-full" size="lg">
-              {isLoading ? 'Signing in...' : 'Sign In'}
-            </Button>
-          </form>
+          )}
 
           {/* Footer */}
           <p className="text-center text-xs text-muted-foreground">

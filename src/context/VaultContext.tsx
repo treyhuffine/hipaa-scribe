@@ -42,7 +42,7 @@ interface VaultContextValue {
 const VaultContext = createContext<VaultContextValue | null>(null);
 
 export function VaultProvider({ children }: { children: React.ReactNode }) {
-  const { user, signOut } = useAuth();
+  const { user, signOut, emailVerified } = useAuth();
 
   const [vaultKey, setVaultKey] = useState<CryptoKey | null>(null);
   const [vaultSecret, setVaultSecret] = useState<string | null>(null);
@@ -66,6 +66,14 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
    */
   const initializeVault = useCallback(async () => {
     if (!user) {
+      setVaultKey(null);
+      setVaultSecret(null);
+      setIsLoading(false);
+      return;
+    }
+
+    // Block vault initialization if email not verified
+    if (!emailVerified) {
       setVaultKey(null);
       setVaultSecret(null);
       setIsLoading(false);
@@ -97,7 +105,7 @@ export function VaultProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, emailVerified]);
 
   // Initialize vault on login
   useEffect(() => {

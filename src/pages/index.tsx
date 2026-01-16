@@ -4,9 +4,10 @@
  * Entry point for authenticated users.
  * Flow:
  * 1. Auth guard: redirect to /login if not authenticated
- * 2. Profile guard: show setup modal if profile incomplete
- * 3. Lock screen: show when vault is locked (isLocked || !vaultKey)
- * 4. Main app: show recorder and notes list when unlocked
+ * 2. Email verification guard: block if email not verified
+ * 3. Profile guard: show setup modal if profile incomplete
+ * 4. Lock screen: show when vault is locked (isLocked || !vaultKey)
+ * 5. Main app: show recorder and notes list when unlocked
  */
 
 import { useEffect } from 'react';
@@ -17,6 +18,7 @@ import { useVault } from '@/context/VaultContext';
 import { Layout } from '@/components/Layout';
 import { LockScreen } from '@/components/LockScreen';
 import { ProfileSetupModal } from '@/components/ProfileSetupModal';
+import { EmailVerificationScreen } from '@/components/EmailVerificationScreen';
 import { Recorder } from '@/components/Recorder';
 import { NotesList } from '@/components/NotesList';
 import { runJanitorForUser } from '@/lib/storage';
@@ -24,7 +26,7 @@ import { SESSION_CONFIG } from '@/lib/constants';
 
 export default function Home() {
   const router = useRouter();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, emailVerified } = useAuth();
   const { isProfileComplete, loading: profileLoading } = useUserProfile();
   const { isLocked, isLoading: vaultLoading, vaultKey } = useVault();
 
@@ -70,6 +72,12 @@ export default function Home() {
   // Don't render if not authenticated (will redirect)
   if (!user) {
     return null;
+  }
+
+  // Show email verification screen if email not verified
+  // This is blocking - user cannot proceed until email is verified
+  if (!emailVerified) {
+    return <EmailVerificationScreen email={user.email || ''} />;
   }
 
   // Show profile setup modal if profile incomplete
