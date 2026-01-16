@@ -60,7 +60,7 @@ export const SESSION_CONFIG = {
  * Checks if the app is running in development mode based on NEXT_PUBLIC_APP_STAGE env var.
  * Dev mode enables testing utilities and shortened timeouts.
  */
-export const IS_DEV_MODE = process.env.NEXT_PUBLIC_APP_STAGE !== 'development';
+export const IS_DEV_MODE = process.env.NEXT_PUBLIC_APP_STAGE === 'development';
 
 /**
  * Dev mode session config (shortened timeouts for testing)
